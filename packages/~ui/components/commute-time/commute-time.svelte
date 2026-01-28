@@ -19,6 +19,7 @@
   let durationsMap: Record<string, Durations> = {}
   let showModal = false
   let showResults = false
+  let pendingResults = false
 
   const ICON_MAP = {
     walking: WalkSVG,
@@ -28,33 +29,42 @@
   }
 
   $: {
+    // If user has no addresses, we can't show results
     if ($addresses.length === 0) {
       showResults = false
     }
+    // If we were waiting for addresses and now we have them, show results
+    else if (pendingResults) {
+      showResults = true
+      pendingResults = false
+    }
 
     // Automatically load data for new addresses if we are already showing results
-    if (showResults) {
+    if (showResults && $addresses.length > 0) {
       const missing = $addresses.filter(addr => !durationsMap[addr])
-      if (missing.length > 0) {
+      if (missing.length > 0 && !loading) {
         loadBatch(missing)
       }
     }
 
     // Clean up durations for removed addresses
     const currentAddresses = Object.keys(durationsMap)
-    if (currentAddresses.some(addr => !$addresses.includes(addr))) {
+    const storeAddresses = $addresses
+    if (currentAddresses.some(addr => !storeAddresses.includes(addr))) {
       const newMap = { ...durationsMap }
       currentAddresses.forEach(addr => {
-        if (!$addresses.includes(addr)) delete newMap[addr]
+        if (!storeAddresses.includes(addr)) delete newMap[addr]
       })
       durationsMap = newMap
     }
   }
 
   const loadBatch = async (addressList: string[]) => {
+    loading = true
     const { data, error } = await api.commute.durations.get({
       $query: { addresses: addressList.join('|') },
     })
+    loading = false
 
     if (error || data.status === 'error') {
       console.error('Failed to load commute durations', error || data.message)
@@ -73,18 +83,18 @@
 
   const loadAll = async () => {
     if ($addresses.length === 0) {
+      pendingResults = true
       showModal = true
       return
     }
 
-    loading = true
     await loadBatch($addresses)
-    loading = false
     showResults = true
   }
 
   const handleCalculateClick = () => {
     if ($addresses.length === 0) {
+      pendingResults = true
       showModal = true
     } else {
       loadAll()

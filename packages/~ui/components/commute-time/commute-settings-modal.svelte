@@ -94,7 +94,7 @@
     ></div>
     <div class=".relative .w-full .max-w-md .rounded-2xl .bg-white .shadow-2xl">
       <div
-        class=".flex .items-center .justify-between .border-b .border-black-100 .p-6"
+        class=".flex .items-center .justify-between .border-0 .border-b .border-solid .border-black-100 .p-6"
       >
         <h3 class=".text-black-900 .text-lg .font-bold">Commute Settings</h3>
         <button
@@ -170,7 +170,7 @@
         </div>
 
         <!-- Max Durations Section -->
-        <div class=".border-t .border-black-100 .pt-6">
+        <div class=".border-0 .border-t .border-solid .border-black-100 .pt-6">
           <div class=".mb-5">
             <h4 class=".text-black-900 .text-sm .font-bold">
               Maximum acceptable travel time (mins)
@@ -219,10 +219,11 @@
 <style>
   * {
     box-sizing: border-box;
-    font-family: inherit;
+    font-family: 'Poppins', sans-serif;
   }
 
-  p {
+  p,
+  h4 {
     margin: 0;
   }
 
