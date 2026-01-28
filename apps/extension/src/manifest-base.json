@@ -13,7 +13,8 @@
   ],
   "host_permissions": [
     "https://www.pararius.com/",
-    "https://www.pararius.nl/"
+    "https://www.pararius.nl/",
+    "http://localhost:5002/*"
   ],
   "action": {
     "default_icon": "icons/192x192.png"
