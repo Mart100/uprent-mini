@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getCommuteDurations } from '@shared/lib/api'
+  import api from '~api'
   import type { Durations } from '~core/database'
   import { RouteSVG } from '~ui/assets'
   import { Button } from '~ui/components'
@@ -9,7 +9,7 @@
 
   const load = async () => {
     loading = true
-    const { data, error }: any = await getCommuteDurations()
+    const { data, error } = await api.commute.durations.get()
     loading = false
 
     if (error || data.status === 'error') {
