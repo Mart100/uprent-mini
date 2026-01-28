@@ -4,23 +4,35 @@ import type { Durations } from '~core/database'
 import { randomInt } from '~core/helpers'
 
 const resDTO = t.Object({
-  durations: DurationsSchema,
+  results: t.Record(t.String(), DurationsSchema),
 })
 
 export const commuteDurationsEndpointHandler = app.get(
   '/durations',
-  ({ res }) => {
-    // mock commute times
-    const durations: Durations = {
-      walking: randomInt(45, 90),
-      biking: randomInt(25, 60),
-      driving: randomInt(10, 30),
-      transit: randomInt(10, 30),
+  ({ query, res }) => {
+    // Split by pipe to avoid comma conflicts in addresses
+    const addressList = query.addresses?.split('|').filter(Boolean) || []
+
+    const results: Record<string, Durations> = {}
+
+    for (const address of addressList) {
+      // Generate mock durations
+      results[address] = {
+        walking: randomInt(45, 120),
+        biking: randomInt(25, 90),
+        driving: randomInt(10, 60),
+        transit: randomInt(10, 60),
+      }
     }
 
     return res.ok({
-      durations,
+      results,
     })
   },
-  { response: res(resDTO) },
+  {
+    query: t.Object({
+      addresses: t.Optional(t.String()),
+    }),
+    response: res(resDTO),
+  },
 )

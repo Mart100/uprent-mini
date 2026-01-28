@@ -34,11 +34,10 @@
 
     // Automatically load data for new addresses if we are already showing results
     if (showResults) {
-      $addresses.forEach(addr => {
-        if (!durationsMap[addr]) {
-          load(addr)
-        }
-      })
+      const missing = $addresses.filter(addr => !durationsMap[addr])
+      if (missing.length > 0) {
+        loadBatch(missing)
+      }
     }
 
     // Clean up durations for removed addresses
@@ -52,9 +51,9 @@
     }
   }
 
-  const load = async (address: string) => {
+  const loadBatch = async (addressList: string[]) => {
     const { data, error } = await api.commute.durations.get({
-      query: { address },
+      $query: { addresses: addressList.join('|') },
     })
 
     if (error || data.status === 'error') {
@@ -64,8 +63,12 @@
 
     durationsMap = {
       ...durationsMap,
-      [address]: data.payload.durations,
+      ...data.payload.results,
     }
+  }
+
+  const load = async (address: string) => {
+    await loadBatch([address])
   }
 
   const loadAll = async () => {
@@ -75,7 +78,7 @@
     }
 
     loading = true
-    await Promise.all($addresses.map(addr => load(addr)))
+    await loadBatch($addresses)
     loading = false
     showResults = true
   }
