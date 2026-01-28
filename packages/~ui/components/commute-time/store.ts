@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store'
 import type { Durations } from '~core/database'
 
-// Persistent storage keys
+// storage keys (stored in localStorage or extension storage)
 const ADDR_KEY = 'uprent-commute-addresses'
 const MAX_DUR_KEY = 'uprent-commute-max-durations'
 
@@ -12,146 +12,113 @@ const DEFAULT_MAX_DURATIONS: Durations = {
   driving: 45,
 }
 
-// Check environment
+export const TRAVEL_MODES: { key: keyof Durations; label: string }[] = [
+  { key: 'walking', label: 'Walking' },
+  { key: 'biking', label: 'Biking' },
+  { key: 'transit', label: 'Transit' },
+  { key: 'driving', label: 'Driving' },
+]
+
 const isExtension =
   typeof chrome !== 'undefined' &&
   typeof chrome.storage !== 'undefined' &&
   typeof chrome.storage.local !== 'undefined'
 
-// Load initial state synchronously for immediate UI feedback
-const getInitialFromLocal = <T>(key: string, fallback: T): T => {
-  if (typeof window === 'undefined') return fallback
-  // In extension mode, localStorage is site-specific and useless for global sync
-  if (isExtension) return fallback
-  const saved = localStorage.getItem(key)
-  if (!saved) return fallback
-  try {
-    return JSON.parse(saved)
-  } catch (e) {
-    return fallback
+function createSyncedStore<T>(
+  key: string,
+  defaultValue: T,
+  messageSuffix: string,
+) {
+  // Load initial state synchronously for immediate UI feedback
+  const getInitial = (): T => {
+    if (typeof window === 'undefined' || isExtension) return defaultValue
+    const saved = localStorage.getItem(key)
+    if (!saved) return defaultValue
+    try {
+      return JSON.parse(saved)
+    } catch {
+      return defaultValue
+    }
   }
-}
 
-// Shared stores for all instances on the same page
-export const addresses = writable<string[]>(getInitialFromLocal(ADDR_KEY, []))
-export const maxDurations = writable<Durations>(
-  getInitialFromLocal(MAX_DUR_KEY, DEFAULT_MAX_DURATIONS),
-)
-
-// Initial load
-if (typeof window !== 'undefined') {
+  const store = writable<T>(getInitial())
   let isUpdating = false
   let hasSyncedInitial = false
 
-  // Helper to update store without triggering subscribers' persistence logic
-  const silentSet = (store: any, val: any) => {
+  const setSilently = (val: T) => {
     isUpdating = true
     store.set(val)
     isUpdating = false
   }
 
-  const syncFromExtension = () => {
+  if (typeof window !== 'undefined') {
     if (isExtension) {
-      chrome.storage.local.get([ADDR_KEY, MAX_DUR_KEY], (result: any) => {
-        if (result[ADDR_KEY]) {
-          silentSet(addresses, result[ADDR_KEY])
-        }
-        if (result[MAX_DUR_KEY]) {
-          silentSet(maxDurations, result[MAX_DUR_KEY])
-        }
+      // Sync from extension storage
+      chrome.storage.local.get([key], (result: any) => {
+        if (result[key]) setSilently(result[key])
         hasSyncedInitial = true
+      })
+
+      // Listen for changes in extension storage
+      chrome.storage.onChanged.addListener((changes: any, area: string) => {
+        if (area === 'local' && changes[key]) {
+          setSilently(changes[key].newValue ?? defaultValue)
+        }
       })
     } else {
       // Communication bridge for the main website to talk to the extension
-      window.postMessage({ type: 'UPRENT_GET_ADDRESSES' }, '*')
-      window.postMessage({ type: 'UPRENT_GET_MAX_DURATIONS' }, '*')
+      window.postMessage({ type: `UPRENT_GET_${messageSuffix}` }, '*')
 
-      // If extension doesn't respond in 1s, allow local persistence to continue
+      // If extension doesn't respond, allow local persistence
       setTimeout(() => {
         if (!hasSyncedInitial) hasSyncedInitial = true
       }, 1000)
-    }
-  }
 
-  syncFromExtension()
-
-  // Handle updates from storage
-  if (isExtension) {
-    chrome.storage.onChanged.addListener((changes: any, area: any) => {
-      if (area === 'local') {
-        if (changes[ADDR_KEY]) {
-          silentSet(addresses, changes[ADDR_KEY].newValue || [])
+      // Listen for messages from the extension
+      window.addEventListener('message', event => {
+        if (event.data?.type === `UPRENT_${messageSuffix}_UPDATED`) {
+          setSilently(event.data.payload ?? defaultValue)
+          hasSyncedInitial = true
         }
-        if (changes[MAX_DUR_KEY]) {
-          silentSet(
-            maxDurations,
-            changes[MAX_DUR_KEY].newValue || DEFAULT_MAX_DURATIONS,
+      })
+
+      // Sync across tabs via localStorage (fallback)
+      window.addEventListener('storage', (e: StorageEvent) => {
+        if (!isUpdating && e.key === key && e.newValue) {
+          try {
+            setSilently(JSON.parse(e.newValue))
+          } catch {}
+        }
+      })
+    }
+
+    // Persist changes
+    store.subscribe(val => {
+      if (isUpdating || typeof val === 'undefined') return
+
+      if (isExtension) {
+        if (hasSyncedInitial) {
+          chrome.storage.local.set({ [key]: val })
+        }
+      } else {
+        if (hasSyncedInitial) {
+          window.postMessage(
+            { type: `UPRENT_SET_${messageSuffix}`, payload: val },
+            '*',
           )
         }
+        localStorage.setItem(key, JSON.stringify(val))
       }
     })
   }
 
-  // Handle messages from the extension (for the main website)
-  window.addEventListener('message', event => {
-    if (event.data?.type === 'UPRENT_ADDRESSES_UPDATED') {
-      silentSet(addresses, event.data.payload || [])
-      hasSyncedInitial = true
-    }
-    if (event.data?.type === 'UPRENT_MAX_DURATIONS_UPDATED') {
-      silentSet(maxDurations, event.data.payload || DEFAULT_MAX_DURATIONS)
-      hasSyncedInitial = true
-    }
-  })
-
-  // Subscribe to changes and persist addresses
-  addresses.subscribe(val => {
-    if (typeof val === 'undefined' || isUpdating) return
-
-    if (isExtension) {
-      if (hasSyncedInitial) {
-        chrome.storage.local.set({ [ADDR_KEY]: val })
-      }
-    } else {
-      if (hasSyncedInitial) {
-        window.postMessage({ type: 'UPRENT_SET_ADDRESSES', payload: val }, '*')
-      }
-      localStorage.setItem(ADDR_KEY, JSON.stringify(val))
-    }
-  })
-
-  // Subscribe to changes and persist maxDurations
-  maxDurations.subscribe(val => {
-    if (typeof val === 'undefined' || isUpdating) return
-
-    if (isExtension) {
-      if (hasSyncedInitial) {
-        chrome.storage.local.set({ [MAX_DUR_KEY]: val })
-      }
-    } else {
-      if (hasSyncedInitial) {
-        window.postMessage(
-          { type: 'UPRENT_SET_MAX_DURATIONS', payload: val },
-          '*',
-        )
-      }
-      localStorage.setItem(MAX_DUR_KEY, JSON.stringify(val))
-    }
-  })
-
-  // Sync across tabs via localStorage (fallback)
-  window.addEventListener('storage', (e: StorageEvent) => {
-    if (isUpdating) return
-
-    if (e.key === ADDR_KEY && e.newValue) {
-      try {
-        silentSet(addresses, JSON.parse(e.newValue))
-      } catch (e) {}
-    }
-    if (e.key === MAX_DUR_KEY && e.newValue) {
-      try {
-        silentSet(maxDurations, JSON.parse(e.newValue))
-      } catch (e) {}
-    }
-  })
+  return store
 }
+
+// Shared stores for all instances on the same page
+export const addresses = createSyncedStore<string[]>(ADDR_KEY, [], 'ADDRESSES')
+export const maxDurations = createSyncedStore<Durations>(
+  MAX_DUR_KEY,
+  DEFAULT_MAX_DURATIONS,
+  'MAX_DURATIONS',
+)

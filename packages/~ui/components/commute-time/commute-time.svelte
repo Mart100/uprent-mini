@@ -12,13 +12,20 @@
     SettingsSVG,
   } from '~ui/assets'
   import { Button } from '~ui/components'
-  import { addresses, maxDurations } from './store'
+  import { addresses, maxDurations, TRAVEL_MODES } from './store'
   import SettingsModal from './commute-settings-modal.svelte'
 
   let loading = false
   let durationsMap: Record<string, Durations> = {}
   let showModal = false
   let showResults = false
+
+  const ICON_MAP = {
+    walking: WalkSVG,
+    biking: BikeSVG,
+    transit: BusSVG,
+    driving: CarSVG,
+  }
 
   $: {
     if ($addresses.length === 0) {
@@ -138,90 +145,27 @@
             <div
               class=".flex .items-center .justify-between .gap-1 .border-0 .border-t .border-solid .border-black-100 .pt-1"
             >
-              <div
-                class=".flex .items-center .gap-1.5"
-                class:.text-red-error={isExceeding(
-                  'walking',
-                  durationsMap[address].walking,
-                )}
-                class:.text-black-500={!isExceeding(
-                  'walking',
-                  durationsMap[address].walking,
-                )}
-                title="Walking"
-              >
-                <WalkSVG class=".h-3.5 .w-3.5" />
-                <span
-                  class=".text-[10px] .font-medium"
-                  class:.text-black-900={!isExceeding(
-                    'walking',
-                    durationsMap[address].walking,
-                  )}>{formatTime(durationsMap[address].walking)}</span
+              {#each TRAVEL_MODES as mode}
+                {@const value = durationsMap[address][mode.key]}
+                {@const exceeding = isExceeding(mode.key, value)}
+                <div
+                  class=".flex .items-center .gap-1.5"
+                  class:.text-red-error={exceeding}
+                  class:.text-black-500={!exceeding}
+                  title={mode.label}
                 >
-              </div>
-              <div
-                class=".flex .items-center .gap-1.5"
-                class:.text-red-error={isExceeding(
-                  'biking',
-                  durationsMap[address].biking,
-                )}
-                class:.text-black-500={!isExceeding(
-                  'biking',
-                  durationsMap[address].biking,
-                )}
-                title="Biking"
-              >
-                <BikeSVG class=".h-3.5 .w-3.5" />
-                <span
-                  class=".text-[10px] .font-medium"
-                  class:.text-black-900={!isExceeding(
-                    'biking',
-                    durationsMap[address].biking,
-                  )}>{formatTime(durationsMap[address].biking)}</span
-                >
-              </div>
-              <div
-                class=".flex .items-center .gap-1.5"
-                class:.text-red-error={isExceeding(
-                  'transit',
-                  durationsMap[address].transit,
-                )}
-                class:.text-black-500={!isExceeding(
-                  'transit',
-                  durationsMap[address].transit,
-                )}
-                title="Transit"
-              >
-                <BusSVG class=".h-3.5 .w-3.5" />
-                <span
-                  class=".text-[10px] .font-medium"
-                  class:.text-black-900={!isExceeding(
-                    'transit',
-                    durationsMap[address].transit,
-                  )}>{formatTime(durationsMap[address].transit)}</span
-                >
-              </div>
-              <div
-                class=".flex .items-center .gap-1.5"
-                class:.text-red-error={isExceeding(
-                  'driving',
-                  durationsMap[address].driving,
-                )}
-                class:.text-black-500={!isExceeding(
-                  'driving',
-                  durationsMap[address].driving,
-                )}
-                title="Driving"
-              >
-                <CarSVG class=".h-3.5 .w-3.5" />
-                <span
-                  class=".text-[10px] .font-medium"
-                  class:.text-black-900={!isExceeding(
-                    'driving',
-                    durationsMap[address].driving,
-                  )}>{formatTime(durationsMap[address].driving)}</span
-                >
-              </div>
+                  <svelte:component
+                    this={ICON_MAP[mode.key]}
+                    class=".h-3.5 .w-3.5"
+                  />
+                  <span
+                    class=".text-[10px] .font-medium"
+                    class:.text-black-900={!exceeding}
+                  >
+                    {formatTime(value)}
+                  </span>
+                </div>
+              {/each}
             </div>
           {:else}
             <div

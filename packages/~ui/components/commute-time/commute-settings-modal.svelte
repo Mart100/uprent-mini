@@ -1,9 +1,17 @@
 <script lang="ts">
   import { get } from 'svelte/store'
   import type { Durations } from '~core/database'
-  import { XSVG, MapPinSVG, WalkSVG, BikeSVG, BusSVG, CarSVG } from '~ui/assets'
+  import {
+    XSVG,
+    MapPinSVG,
+    WalkSVG,
+    BikeSVG,
+    BusSVG,
+    CarSVG,
+    PlusSVG,
+  } from '~ui/assets'
   import { Button } from '~ui/components'
-  import { addresses, maxDurations } from './store'
+  import { addresses, maxDurations, TRAVEL_MODES } from './store'
 
   export let show = false
 
@@ -15,20 +23,20 @@
     driving: 0,
   }
 
-  let initialized = false
-
-  $: if (show && !initialized) {
+  $: if (show) {
     localAddresses = [...get(addresses)]
     localMaxDurations = { ...get(maxDurations) }
-    initialized = true
-  }
-
-  $: if (!show) {
-    initialized = false
   }
 
   let tempAddress = ''
   let suggestionsVisible = false
+
+  const ICON_MAP = {
+    walking: WalkSVG,
+    biking: BikeSVG,
+    transit: BusSVG,
+    driving: CarSVG,
+  }
 
   const MOCK_ADDRESSES = [
     'Prinsengracht 123, Amsterdam',
@@ -173,77 +181,28 @@
           </div>
 
           <div class=".grid .grid-cols-2 .gap-4">
-            <div class=".flex .flex-col .gap-1.5">
-              <div class=".text-black-500 .flex .items-center .gap-1.5">
-                <WalkSVG class=".h-3.5 .w-3.5" />
-                <label
-                  for="max-walk"
-                  class=".text-[10px] .font-bold .uppercase .tracking-wider"
-                  >Walking</label
-                >
+            {#each TRAVEL_MODES as mode}
+              <div class=".flex .flex-col .gap-1.5">
+                <div class=".text-black-500 .flex .items-center .gap-1.5">
+                  <svelte:component
+                    this={ICON_MAP[mode.key]}
+                    class=".h-3.5 .w-3.5"
+                  />
+                  <label
+                    for="max-{mode.key}"
+                    class=".text-[10px] .font-bold .uppercase .tracking-wider"
+                    >{mode.label}</label
+                  >
+                </div>
+                <input
+                  id="max-{mode.key}"
+                  type="number"
+                  bind:value={localMaxDurations[mode.key]}
+                  min="1"
+                  class=".w-full .rounded-lg .border .border-black-200 .px-3 .py-2 .text-sm .outline-none focus:.border-primary"
+                />
               </div>
-              <input
-                id="max-walk"
-                type="number"
-                bind:value={localMaxDurations.walking}
-                min="1"
-                class=".w-full .rounded-lg .border .border-black-200 .px-3 .py-2 .text-sm .outline-none focus:.border-primary"
-              />
-            </div>
-
-            <div class=".flex .flex-col .gap-1.5">
-              <div class=".text-black-500 .flex .items-center .gap-1.5">
-                <BikeSVG class=".h-3.5 .w-3.5" />
-                <label
-                  for="max-bike"
-                  class=".text-[10px] .font-bold .uppercase .tracking-wider"
-                  >Biking</label
-                >
-              </div>
-              <input
-                id="max-bike"
-                type="number"
-                bind:value={localMaxDurations.biking}
-                min="1"
-                class=".w-full .rounded-lg .border .border-black-200 .px-3 .py-2 .text-sm .outline-none focus:.border-primary"
-              />
-            </div>
-
-            <div class=".flex .flex-col .gap-1.5">
-              <div class=".text-black-500 .flex .items-center .gap-1.5">
-                <BusSVG class=".h-3.5 .w-3.5" />
-                <label
-                  for="max-transit"
-                  class=".text-[10px] .font-bold .uppercase .tracking-wider"
-                  >Transit</label
-                >
-              </div>
-              <input
-                id="max-transit"
-                type="number"
-                bind:value={localMaxDurations.transit}
-                min="1"
-                class=".w-full .rounded-lg .border .border-black-200 .px-3 .py-2 .text-sm .outline-none focus:.border-primary"
-              />
-            </div>
-
-            <div class=".flex .flex-col .gap-1.5">
-              <div class=".text-black-500 .flex .items-center .gap-1.5">
-                <CarSVG class=".h-3.5 .w-3.5" />
-                <label
-                  for="max-drive"
-                  class=".text-[10px] .font-bold .uppercase .tracking-wider"
-                  >Driving</label
-                >
-              </div>
-              <input
-                id="max-drive"
-                type="number"
-                bind:value={localMaxDurations.driving}
-                min="1"
-                class=".w-full .rounded-lg .border .border-black-200 .px-3 .py-2 .text-sm .outline-none focus:.border-primary"
-              />
-            </div>
+            {/each}
           </div>
         </div>
       </div>
