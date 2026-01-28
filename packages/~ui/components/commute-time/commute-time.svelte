@@ -7,34 +7,48 @@
     BikeSVG,
     BusSVG,
     CarSVG,
-    PlusSVG,
     XSVG,
     MapPinSVG,
+    SettingsSVG,
   } from '~ui/assets'
   import { Button } from '~ui/components'
-  import { addresses } from './store'
-  import DestinationModal from './destination-modal.svelte'
+  import { addresses, maxDurations } from './store'
+  import SettingsModal from './commute-settings-modal.svelte'
 
   let loading = false
   let durationsMap: Record<string, Durations> = {}
   let showModal = false
   let showResults = false
 
-  const removeAddress = (index: number) => {
-    const addr = $addresses[index]
-    addresses.update(items => items.filter((_, i) => i !== index))
-
-    const newMap = { ...durationsMap }
-    delete newMap[addr]
-    durationsMap = newMap
-
+  $: {
     if ($addresses.length === 0) {
       showResults = false
+    }
+
+    // Automatically load data for new addresses if we are already showing results
+    if (showResults) {
+      $addresses.forEach(addr => {
+        if (!durationsMap[addr]) {
+          load(addr)
+        }
+      })
+    }
+
+    // Clean up durations for removed addresses
+    const currentAddresses = Object.keys(durationsMap)
+    if (currentAddresses.some(addr => !$addresses.includes(addr))) {
+      const newMap = { ...durationsMap }
+      currentAddresses.forEach(addr => {
+        if (!$addresses.includes(addr)) delete newMap[addr]
+      })
+      durationsMap = newMap
     }
   }
 
   const load = async (address: string) => {
-    const { data, error } = await api.commute.durations.get()
+    const { data, error } = await api.commute.durations.get({
+      query: { address },
+    })
 
     if (error || data.status === 'error') {
       console.error('Failed to load commute durations', error || data.message)
@@ -74,66 +88,144 @@
     const m = mins % 60
     return m > 0 ? `${h}h ${m}m` : `${h}h`
   }
+
+  const isExceeding = (
+    mode: keyof Durations,
+    value: number | null | undefined,
+  ) => {
+    if (value === null || value === undefined) return false
+    const max = $maxDurations[mode]
+    return max !== null && value > max
+  }
 </script>
 
-<div class=".flex .max-w-80 .flex-col .gap-3">
+<div class=".flex .max-w-80 .flex-col .gap-3 .p-5 .pl-0">
   {#if !showResults || $addresses.length === 0}
-    <Button primary {loading} onClick={handleCalculateClick} class=".w-full">
-      <RouteSVG slot="icon" />
-      Calculate Commutes
-    </Button>
+    <div class=".flex .gap-2">
+      <Button primary {loading} onClick={handleCalculateClick} class=".flex-1">
+        <RouteSVG slot="icon" />
+        Calculate Commutes
+      </Button>
+    </div>
   {:else}
     <div class=".flex .flex-col .gap-2">
+      <div class=".mb-1 .flex .items-center .justify-between .px-1">
+        <span
+          class=".text-black-400 .text-[10px] .font-bold .uppercase .tracking-wider"
+          >Commute times</span
+        >
+        <button
+          class=".text-black-300 .transition-colors hover:.text-primary"
+          on:click={() => (showModal = true)}
+          title="Settings"
+        >
+          <SettingsSVG class=".h-4 .w-4" />
+        </button>
+      </div>
+
       {#each $addresses as address, i}
-        <div class=".bg-black-50 .flex .flex-col .gap-2 .rounded-lg .p-3">
-          <div class=".flex .items-center .justify-between .gap-2">
+        <div class=".bg-black-50 .flex .flex-col .gap-1 .rounded-lg .p-1">
+          <div class=".flex .items-center .justify-between .gap-1">
             <div class=".flex .min-w-0 .items-center .gap-1.5">
               <MapPinSVG class=".h-4 .w-4 .shrink-0 .text-primary" />
               <span class=".text-black-900 .truncate .text-sm .font-medium"
                 >{address}</span
               >
             </div>
-            <button
-              class=".rounded-md .p-0.5 .text-black-300 .transition-colors .duration-150 hover:.text-primary"
-              on:click={() => removeAddress(i)}
-              title="Remove destination"
-            >
-              <XSVG class=".h-3.5 .w-3.5 .text-current" />
-            </button>
           </div>
 
           {#if durationsMap[address]}
             <div
-              class=".flex .flex-wrap .items-center .gap-3 .border-t .border-black-100 .pt-2"
+              class=".flex .items-center .justify-between .gap-1 .border-0 .border-t .border-solid .border-black-100 .pt-1"
             >
-              <div class=".flex .items-center .gap-1.5" title="Walking">
-                <WalkSVG class=".text-black-500 .h-3.5 .w-3.5" />
-                <span class=".text-black-900 .text-xs .font-medium"
-                  >{formatTime(durationsMap[address].walking)}</span
+              <div
+                class=".flex .items-center .gap-1.5"
+                class:.text-red-error={isExceeding(
+                  'walking',
+                  durationsMap[address].walking,
+                )}
+                class:.text-black-500={!isExceeding(
+                  'walking',
+                  durationsMap[address].walking,
+                )}
+                title="Walking"
+              >
+                <WalkSVG class=".h-3.5 .w-3.5" />
+                <span
+                  class=".text-[10px] .font-medium"
+                  class:.text-black-900={!isExceeding(
+                    'walking',
+                    durationsMap[address].walking,
+                  )}>{formatTime(durationsMap[address].walking)}</span
                 >
               </div>
-              <div class=".flex .items-center .gap-1.5" title="Biking">
-                <BikeSVG class=".text-black-500 .h-3.5 .w-3.5" />
-                <span class=".text-black-900 .text-xs .font-medium"
-                  >{formatTime(durationsMap[address].biking)}</span
+              <div
+                class=".flex .items-center .gap-1.5"
+                class:.text-red-error={isExceeding(
+                  'biking',
+                  durationsMap[address].biking,
+                )}
+                class:.text-black-500={!isExceeding(
+                  'biking',
+                  durationsMap[address].biking,
+                )}
+                title="Biking"
+              >
+                <BikeSVG class=".h-3.5 .w-3.5" />
+                <span
+                  class=".text-[10px] .font-medium"
+                  class:.text-black-900={!isExceeding(
+                    'biking',
+                    durationsMap[address].biking,
+                  )}>{formatTime(durationsMap[address].biking)}</span
                 >
               </div>
-              <div class=".flex .items-center .gap-1.5" title="Transit">
-                <BusSVG class=".text-black-500 .h-3.5 .w-3.5" />
-                <span class=".text-black-900 .text-xs .font-medium"
-                  >{formatTime(durationsMap[address].transit)}</span
+              <div
+                class=".flex .items-center .gap-1.5"
+                class:.text-red-error={isExceeding(
+                  'transit',
+                  durationsMap[address].transit,
+                )}
+                class:.text-black-500={!isExceeding(
+                  'transit',
+                  durationsMap[address].transit,
+                )}
+                title="Transit"
+              >
+                <BusSVG class=".h-3.5 .w-3.5" />
+                <span
+                  class=".text-[10px] .font-medium"
+                  class:.text-black-900={!isExceeding(
+                    'transit',
+                    durationsMap[address].transit,
+                  )}>{formatTime(durationsMap[address].transit)}</span
                 >
               </div>
-              <div class=".flex .items-center .gap-1.5" title="Driving">
-                <CarSVG class=".text-black-500 .h-3.5 .w-3.5" />
-                <span class=".text-black-900 .text-xs .font-medium"
-                  >{formatTime(durationsMap[address].driving)}</span
+              <div
+                class=".flex .items-center .gap-1.5"
+                class:.text-red-error={isExceeding(
+                  'driving',
+                  durationsMap[address].driving,
+                )}
+                class:.text-black-500={!isExceeding(
+                  'driving',
+                  durationsMap[address].driving,
+                )}
+                title="Driving"
+              >
+                <CarSVG class=".h-3.5 .w-3.5" />
+                <span
+                  class=".text-[10px] .font-medium"
+                  class:.text-black-900={!isExceeding(
+                    'driving',
+                    durationsMap[address].driving,
+                  )}>{formatTime(durationsMap[address].driving)}</span
                 >
               </div>
             </div>
           {:else}
             <div
-              class=".flex .items-center .gap-2 .border-t .border-black-100 .pt-2"
+              class=".flex .items-center .gap-1 .border-t .border-black-100 .pt-2"
             >
               <button
                 class="hover:.text-primary-600 .flex .items-center .gap-1.5 .text-xs .font-medium .text-primary .transition-colors"
@@ -145,23 +237,11 @@
           {/if}
         </div>
       {/each}
-
-      {#if $addresses.length < 2}
-        <div class=".mt-1 .px-1">
-          <button
-            class="hover:.text-primary-600 .flex .items-center .gap-1 .text-xs .font-medium .text-primary .transition-colors"
-            on:click={() => (showModal = true)}
-          >
-            <PlusSVG class=".h-3.5 .w-3.5" />
-            Add destination
-          </button>
-        </div>
-      {/if}
     </div>
   {/if}
 </div>
 
-<DestinationModal bind:show={showModal} onAdd={loadAll} />
+<SettingsModal bind:show={showModal} />
 
 <style>
   * {
