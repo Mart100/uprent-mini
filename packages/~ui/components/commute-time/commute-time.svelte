@@ -253,10 +253,4 @@
     border: none;
     padding: 0;
   }
-
-  input {
-    font: inherit;
-    color: inherit;
-    outline: none;
-  }
 </style>

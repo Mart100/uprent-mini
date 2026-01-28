@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store'
+  import type { Durations } from '~core/database'
   import { XSVG, MapPinSVG, WalkSVG, BikeSVG, BusSVG, CarSVG } from '~ui/assets'
   import { Button } from '~ui/components'
   import { addresses, maxDurations } from './store'
@@ -7,7 +8,7 @@
   export let show = false
 
   let localAddresses: string[] = []
-  let localMaxDurations = {
+  let localMaxDurations: Durations = {
     walking: 0,
     biking: 0,
     transit: 0,
@@ -78,8 +79,11 @@
   <div
     class=".fixed .inset-0 .z-[9999] .flex .items-center .justify-center .p-4"
   >
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div class=".absolute .inset-0 .bg-black/50" on:click={close}></div>
+    <div
+      class=".absolute .inset-0 .bg-black/50"
+      aria-hidden="true"
+      on:click={close}
+    ></div>
     <div class=".relative .w-full .max-w-md .rounded-2xl .bg-white .shadow-2xl">
       <div
         class=".flex .items-center .justify-between .border-b .border-black-100 .p-6"

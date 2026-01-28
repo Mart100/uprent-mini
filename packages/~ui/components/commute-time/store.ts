@@ -52,7 +52,7 @@ if (typeof window !== 'undefined') {
 
   const syncFromExtension = () => {
     if (isExtension) {
-      chrome.storage.local.get([ADDR_KEY, MAX_DUR_KEY], result => {
+      chrome.storage.local.get([ADDR_KEY, MAX_DUR_KEY], (result: any) => {
         if (result[ADDR_KEY]) {
           silentSet(addresses, result[ADDR_KEY])
         }
@@ -77,7 +77,7 @@ if (typeof window !== 'undefined') {
 
   // Handle updates from storage
   if (isExtension) {
-    chrome.storage.onChanged.addListener((changes, area) => {
+    chrome.storage.onChanged.addListener((changes: any, area: any) => {
       if (area === 'local') {
         if (changes[ADDR_KEY]) {
           silentSet(addresses, changes[ADDR_KEY].newValue || [])
@@ -140,7 +140,7 @@ if (typeof window !== 'undefined') {
   })
 
   // Sync across tabs via localStorage (fallback)
-  window.addEventListener('storage', e => {
+  window.addEventListener('storage', (e: StorageEvent) => {
     if (isUpdating) return
 
     if (e.key === ADDR_KEY && e.newValue) {

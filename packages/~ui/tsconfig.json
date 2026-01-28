@@ -18,8 +18,16 @@
       "DOM"
     ],
     "types": [
-      "bun-types"
-    ]
+      "bun-types",
+      "chrome"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "~api": ["../~api/index.ts"],
+      "~api/*": ["../~api/*"],
+      "~core/*": ["../~core/*"],
+      "~ui/*": ["./*"]
+    }
   },
   "include": [
     "assets/index.ts",
