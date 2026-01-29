@@ -156,7 +156,7 @@
 
           {#if durationsMap[address]}
             <div
-              class=".flex .items-center .justify-between .gap-1 .border-0 .border-t .border-solid .border-black-100 .pt-1"
+              class=".flex .items-center .justify-between .gap-4 .border-0 .border-t .border-solid .border-black-100 .pt-1"
             >
               {#each TRAVEL_MODES as mode}
                 {@const value = durationsMap[address][mode.key]}
@@ -172,7 +172,7 @@
                     class=".h-3.5 .w-3.5"
                   />
                   <span
-                    class=".text-[10px] .font-medium"
+                    class=".text-[10px] .font-bold"
                     class:.text-black-900={!exceeding}
                   >
                     {formatTime(value)}
